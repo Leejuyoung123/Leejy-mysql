@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mybatis-spring="http://mybatis.org/schema/mybatis-spring"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:cloud="http://www.springframework.org/schema/cloud"
+	xsi:schemaLocation="http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring-1.2.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.1.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.1.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.1.xsd
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.1.xsd
+        http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.1.xsd
+        http://www.springframework.org/schema/cloud
+		https://www.springframework.org/schema/cloud/spring-cloud.xsd">
+
+	<!-- Root Context: defines shared resources visible to all other web components -->
+	<!-- HSQLDB FILE기반 사용 헤로쿠에 올릴때 경로는 /tmp/embeded/edu.db , 로컬PC일때 경로는 c:/egov/workspace/embeded/edu.db  --> 
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource"> 
+		<property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+		<property name="url" value="jdbc:hsqldb: /tmp/embeded/edu.db" />
+		<property name="username" value="sa" />
+		<property name="password" value="" />
+	</bean> 
+	 
+	<!-- CREATE TABLE 초기 1회만 실행 헤로쿠용 -->
+	<jdbc:initialize-database data-source="dataSource" ignore-failures="DROPS"> 
+		<jdbc:script location="classpath:/db/embeded_edu_dummy.sql" /> 
+	</jdbc:initialize-database>
+	
+	<!-- hsql 메모리DB용 -->
+    <jdbc:embedded-database id="dataSource" type="HSQL">
+		<jdbc:script location= "classpath:/db/edu_hsql.sql"/>
+	</jdbc:embedded-database>
+	
+	<!-- 테스트 실행용 헤로쿠용 DB매니저 실행:실제 사용시 아래 value - - 공백제거 하세요. 주석으로 돌릴떈 띄워줘야함-->
+	<bean depends-on="dataSource"
+	class="org.springframework.beans.factory.config.MethodInvokingBean">
+	<property name="targetClass" value="org.hsqldb.util.DatabaseManagerSwing" />
+	<property name="targetMethod" value="main" />
+	<property name="arguments">
+		<list>
+			<value>--url</value>
+			<value>jdbc:hsqldb:mem:dataSource</value>
+			<value>--user</value>
+			<value>sa</value>
+			<value>--password</value>
+			<value></value>
+		</list>
+	</property>
+	</bean>
+	
+	<!-- 로컬 mysql log4jdbc 설정전
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver"></property>
+		<property name="url" value="jdbc:mysql://127.0.0.1:3306/edu"></property>
+		<property name="username" value="root"></property>
+		<property name="password" value="apmsetup"></property>
+	</bean>
+	 -->
+	<!-- 로컬 PC 강제입력 방식 DB커넥션 정상작동 OK -->
+	
+	
+	<!-- 로컬(PC) mysql log4jdbc 설정후ㅇㅇㅇ  이것을 쓰시면 됨-->		
+	<!-- 이것 
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName" 
+				  value="net.sf.log4jdbc.sql.jdbcapi.DriverSpy"></property>
+		<property name="url" 
+				  value="jdbc:log4jdbc:mysql://127.0.0.1:3306/edu"></property>
+		<property name="username" value="root"></property>
+		<property name="password" value="apmsetup"></property>
+	</bean>
+	--> 
+	<!-- 클라우드 파스타용 DB커넥션 설정(아래) 
+	
+	<cloud:data-source id="dataSource" service-name="Leejy-mysql-db">
+		<cloud:connection properties="sessionVariables=sql_mode='ANSI';characterEncoding=UTF-8"/>
+		<cloud:pool pool-size="5-30" max-wait-time="3000"/>
+	</cloud:data-source>
+	-->
+	<!--
+		DataSource 설정으로 JDBC 연결후, MyBatis와 MySql을 연동시킴. 
+		SqlSessionFactory : myBatis와 스프링의 Connection 생성.
+	 -->		 		
+	<bean id="sqlSessionFactory" 
+	      class="org.mybatis.spring.SqlSessionFactoryBean">	   
+	    <!-- 
+	    	JDBC커넥션을 처리하는 DataSource와 mybatis를 연결.
+	     -->
+	 	<property name="dataSource" ref="dataSource" />
+	 	
+	 	<!-- 
+	 	    root-context.xml :: sqlSessionFactory 에 매퍼 xml 파일의 경로를 인식하게 함. 
+	 	 -->
+	 	 <property name="mapperLocations" 
+		      value="classpath:mappers/**/*Mapper.xml"></property>
+	 	
+	</bean>
+	 <!-- 
+		...MyBatis에서 DAO를 이용하는 경우, SqlSessionTemplate라는 것을 이용해서 DAO를 구현함.
+		mybatis-spring에서 제공하는 SqlSessionTempalte객체는 기본적인 트랜잭션 관리나 쓰레드 처리의
+		안정성등을 보장해주고, 개발자들이 직접 DB 연결, 종료작업하는 것을 줄여줌.
+		SqlSessionFactory를 생성자로 주입함.
+	 -->
+	 <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate" 
+	 	  destroy-method="clearCache">
+	  <constructor-arg name="sqlSessionFactory" 
+	    	ref="sqlSessionFactory"></constructor-arg>
+	 </bean>
+	 <context:component-scan base-package="org.edu.dao" />	
+	 <context:component-scan base-package="org.edu.service" />	
+	 
+	 <context:component-scan base-package="org.edu.aop"></context:component-scan>
+	 <aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+	 <aop:config></aop:config>
+	 <!-- 대표적으로 게시판 입력 트랜잭션에서 이용 -->
+	 <bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"></property>
+	 </bean>
+	 <tx:annotation-driven />
+</beans>
