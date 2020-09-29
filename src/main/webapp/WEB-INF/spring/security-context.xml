@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:security="http://www.springframework.org/schema/security"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+        http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-4.1.xsd">
+    <!-- url패턴을 사용해서 스프링 시큐리티 필터를 건너띄는 설정  건너띄눈 이유가 뭘까 ?-->
+    <!-- js/css/images none을 왜 줬을까? 스프리티 시큐리티 필터를 건너뛰기 위해 근데 왜 스프링시큐리티 필터를 건너뛸까 ? : url패턴을 사용하여 필터를 건너띄는 이유는 뭐지 ? -->
+    <security:http pattern="/**/*.js" security="none"></security:http>
+    <security:http pattern="/**/*.css" security="none"></security:http>
+    <security:http pattern="/images/*" security="none"></security:http>
+    <!-- 스프링 기본설정으로 로그인페이지, 로그아웃 기능 사용, spEL(자바변수) 사용 -->
+    <security:http auto-config="true" use-expressions="true">
+	    <!-- 세션관리 이 필터는 인증된 사용자와 관련된 모든 세션을 추적한다. -->
+	    <security:session-management invalid-session-url="/">
+	   		<!-- 동일 ID의 세션 최대 개수가 한개, 그 이상일 경우는 기존 세션 무효화 -->
+	    	<security:concurrency-control max-sessions="1" error-if-maximum-exceeded="false" /> 
+	    </security:session-management>
+	    <!-- 특정 url 패턴에 해당하는 권한 부여를 위해서 -->
+	    <security:intercept-url pattern="/admin/**" access="hasRole('ROLE_ADMIN')" />
+	    <security:intercept-url pattern="/**/write" access="hasAnyRole('ROLE_USER','ROLE_ADMIN')" method="GET" />
+	    <security:intercept-url pattern="/**/update" access="hasAnyRole('ROLE_USER','ROLE_ADMIN')" />
+	    <security:intercept-url pattern="/**/delete" access="hasAnyRole('ROLE_USER','ROLE_ADMIN')" />
+	    <security:intercept-url pattern="/**" access="permitAll" />
+	    <security:csrf disabled="true" />
+	    <security:form-login
+	    	login-page="/login"
+	    	login-processing-url="/login"
+	    	always-use-default-target="true"
+	    	default-target-url="/login_success"
+	    	authentication-failure-url="/login?msg=fail"
+	    	username-parameter="user_id"
+	    	password-parameter="user_pw"
+	    />
+	    <security:remember-me key="remember-key" token-validity-seconds="604800" remember-me-parameter="remember-me-param"/>
+	    <security:logout logout-url="/logout" logout-success-url="/" invalidate-session="true" 
+            delete-cookies="JSESSIONID,SPRING_SECURITY_REMEMBER_ME_COOKIE"/>
+    </security:http>
+    
+    <!-- 인증 관련 아이디/암호 비교 설정 -->
+    <security:authentication-manager>
+    	<!-- 스프링 내장 인증 제공자, userDetails와 userDetailsService 인터페이스 이용-->
+    	<!-- 인증절차가 시작되면 provider 가 실행 DB에 있는 이용자의 정보를 가져오려면 UserDetailService 인터페이스 호출 -->
+    	<!-- 여기에서 DB에 있는 이용자의 정보와 화면에서 입력한 로그인 정보를 비교하게 된다. AuthenticationProvider 인터페이스에서는 authenticatie() 
+    	메소드를 오버라이드 하게 되는데, 이 메소드의 파라미터인 Authentication 으로 화면에서 입력한 로그인 정보를 가져올 수 있다 -->
+        <security:authentication-provider>
+        	<security:jdbc-user-service
+        		data-source-ref="dataSource"
+        		users-by-username-query="select user_id as no, user_pw as password, enabled from tbl_member where user_id = ?"
+        		authorities-by-username-query="select user_id as no, levels as authority from tbl_member where user_id = ?"
+        		/>
+        	<security:password-encoder ref="passwordEncoder" />
+		</security:authentication-provider>
+    </security:authentication-manager>
+    <!-- 스프링 내장 BCryptPasswordEncoder 암호화 이용-->
+    <bean id="passwordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"/>
+</beans>

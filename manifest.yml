@@ -1,0 +1,11 @@
+---
+applications:
+- name: Leejy-mysql
+  memory: 1024M
+  disk_quota: 1024M
+  instances: 1
+  host: leejy-mysql
+  domain: paas-ta.org
+  services:
+   - Leejy-mysql-db
+ 

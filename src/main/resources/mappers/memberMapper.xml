@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	  Mapper 인터페이스를 이용하는 또 다른 장점은 기존의 XML 을
+	   그대로 사용할 수 있음.
+	   이때 두가지 규칙이 있음.
+	   1. Mapper 인터페이스 이름과 XML Mapper 의 네임스페이스를 반드시
+		  일치시킬 것.
+	   2. Mapper 인터페이스의 메서드 이름과 XML 의 id 를 반드시 일치시킴.
+	   root-context.xml :: sqlSessionFactory 에 매퍼 xml 파일의 경로를 인식하게 함.
+-->
+
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="org.edu.dao.IF_MemberDAO">
+	<!-- 공통사용 검색쿼리 -->
+	<sql id="sqlWhere">
+		<if test="searchType !=null">
+			AND (
+			user_name LIKE CONCAT('%',#{searchKeyword},'%')
+			OR
+			user_id LIKE CONCAT('%',#{searchKeyword},'%')
+			OR
+			email LIKE CONCAT('%',#{searchKeyword},'%')
+			)
+		</if>
+	</sql>
+	<insert id="insertMember">
+		insert into tbl_member (user_id,user_pw,user_name,email,point,enabled,levels,reg_date) 
+		values (#{user_id},#{user_pw},#{user_name},#{email},#{point},#{enabled},#{levels},now()) 
+	</insert>
+	<select id="selectMember" resultType="org.edu.vo.MemberVO">
+		select * from tbl_member 
+		WHERE 1 = 1
+		<include refid="sqlWhere"></include>
+		ORDER BY reg_date DESC
+		LIMIT #{startNo}, #{perPageNum}  
+	</select>
+	<select id="countUserId" resultType="int">
+		select count(*) from tbl_member
+		where 1 = 1
+		<include refid="sqlWhere"></include>
+	</select>
+	<update id="updateMember">
+		update tbl_member set
+		<if test="user_pw !=''">
+		user_pw = #{user_pw},
+		</if>
+		user_name = #{user_name},
+		email = #{email},
+		point = #{point},
+		enabled = #{enabled},
+		levels = #{levels},
+		update_date = now() 
+		where user_id = #{user_id}
+	</update>
+	<delete id="deleteMember">
+		delete from tbl_member where user_id = #{user_id}
+	</delete>
+	
+	<select id="viewMember" resultType="org.edu.vo.MemberVO">
+		select * from tbl_member where user_id = #{user_id}  
+	</select>
+	
+	<select id="androidMember" resultType="org.edu.vo.MemberVO">
+		select * from tbl_member order by reg_date desc
+	</select>
+</mapper>
